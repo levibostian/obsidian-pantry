@@ -1,9 +1,6 @@
 import { App, Modal, Notice, Setting } from "obsidian";
-import { fetchHtml } from "../importer/fetcher";
-import { downloadImportedImage } from "../importer/image-downloader";
+import { importRecipeFromUrl } from "../importer/import-url";
 import { defaultImportFolder } from "../importer/note-builder";
-import { extractRecipe } from "../importer/schema-extractor";
-import { saveImportedRecipe } from "../importer/writer";
 import { PantrySettings } from "../settings";
 
 export interface ImportRecipeHost {
@@ -83,39 +80,9 @@ export class ImportRecipeModal extends Modal {
 			return;
 		}
 
-		new Notice("Fetching recipe…");
-
-		const html = await fetchHtml(this.url);
-		if (!html) {
-			new Notice("Could not fetch that URL. Check the address and try again.");
-			return;
-		}
-
-		const recipe = extractRecipe(html, this.url);
-		if (!recipe?.title) {
-			new Notice(
-				"No structured recipe data found on that page. The site may need a login or render its content with scripts. Try copying the recipe text and using the text importer instead.",
-			);
-			return;
-		}
-
-		const settings = this.host.getSettings();
-		if (settings.downloadImportedImages) {
-			const localPath = await downloadImportedImage(
-				this.app,
-				recipe.image,
-				settings.downloadImportedImagePath,
-				recipe.title,
-			);
-			if (localPath) {
-				recipe.image = localPath;
-			} else {
-				new Notice(
-					"Could not download image. Using the remote URL instead.",
-				);
-			}
-		}
+		await importRecipeFromUrl(this.app, this.url, this.host.getSettings(), {
+			folder: this.folder,
+		});
 		this.close();
-		await saveImportedRecipe(this.app, recipe, settings, this.folder);
 	}
 }

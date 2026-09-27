@@ -1,5 +1,6 @@
 import {
 	Menu,
+	Notice,
 	Plugin,
 	TAbstractFile,
 	TFile,
@@ -7,6 +8,7 @@ import {
 	debounce,
 } from "obsidian";
 import { registerCommands } from "./commands";
+import { importRecipeFromUrl } from "./importer/import-url";
 import { GroceryListManager, SaveSink } from "./grocery/manager";
 import {
 	DEFAULT_SHOPPING_STATE_PATH,
@@ -153,6 +155,21 @@ export default class PantryPlugin extends Plugin {
 			openInventory: () => this.activateInventoryView(),
 			openCurrentAsRecipe: () => this.openCurrentAsRecipe(),
 			openCurrentAsMarkdown: () => this.openCurrentAsMarkdown(),
+		});
+
+		// Scripted/agent-driven imports: `obsidian://pantry/import-url?url=...`
+		// runs the same import pipeline as the modal command. `onCollision:
+		// "skip"` keeps a batch from ever wedging on an overwrite prompt.
+		this.registerObsidianProtocolHandler("pantry/import-url", (params) => {
+			const url = params.url?.trim();
+			if (!url) {
+				new Notice("Pantry import: missing `url` parameter.");
+				return;
+			}
+			void importRecipeFromUrl(this.app, url, this.settings, {
+				folder: params.folder,
+				onCollision: "skip",
+			});
 		});
 
 		this.registerEvent(

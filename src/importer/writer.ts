@@ -10,6 +10,16 @@ import {
 } from "./note-builder";
 import { ImportedRecipe } from "./types";
 
+export interface SaveRecipeOptions {
+	/**
+	 * What to do when a note with the imported title already exists.
+	 * `prompt` shows the confirm dialog (interactive), `skip` leaves the
+	 * existing note untouched so scripted batch imports never block on a
+	 * modal. Defaults to `prompt`.
+	 */
+	onCollision?: "prompt" | "skip";
+}
+
 /**
  * Build a normalized recipe note from extracted data and write it to the
  * vault, prompting before overwriting an existing file and opening the
@@ -21,6 +31,7 @@ export async function saveImportedRecipe(
 	recipe: ImportedRecipe,
 	settings: PantrySettings,
 	folderOverride: string,
+	options: SaveRecipeOptions = {},
 ): Promise<void> {
 	const content = await buildRecipeNote(app, recipe, settings);
 	const filename = `${titleToFilename(recipe.title)}.md`;
@@ -29,6 +40,10 @@ export async function saveImportedRecipe(
 
 	const existing = app.vault.getAbstractFileByPath(notePath);
 	if (existing instanceof TFile) {
+		if (options.onCollision === "skip") {
+			new Notice(`Recipe already exists, skipped: ${filename}`);
+			return;
+		}
 		new ConfirmModal(app, {
 			title: "Note already exists",
 			message: `"${filename}" already exists in ${folder || "the vault root"}. Overwrite it?`,
