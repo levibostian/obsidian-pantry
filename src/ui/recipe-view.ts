@@ -697,12 +697,12 @@ export class RecipeView extends TextFileView {
 			toggle.toggleClass("is-selected", selected);
 			toggle.setAttribute("aria-pressed", selected ? "true" : "false");
 			const label = selected
-				? "Remove from grocery list"
-				: "Add to grocery list";
+				? "Remove from meal plan"
+				: "Add to meal plan";
 			toggle.setAttribute("aria-label", label);
 			toggle.title = label;
 			toggle.empty();
-			setIcon(toggle, "shopping-cart");
+			setIcon(toggle, "plus");
 		};
 		updateToggle(isSelected);
 
