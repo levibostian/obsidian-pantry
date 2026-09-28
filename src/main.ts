@@ -842,6 +842,20 @@ function mergeSettings(raw: Partial<PantrySettings> | null): PantrySettings {
 			raw.suggestionCount >= 1
 				? Math.round(raw.suggestionCount)
 				: base.suggestionCount,
+		storedSuggestions:
+			raw.storedSuggestions &&
+			Array.isArray(raw.storedSuggestions.paths) &&
+			raw.storedSuggestions.paths.every(
+				(p) => typeof p === "string",
+			)
+				? {
+						paths: raw.storedSuggestions.paths.filter(
+							(p): p is string => typeof p === "string",
+						),
+						favoritesOnly: raw.storedSuggestions.favoritesOnly === true,
+						hideAllergens: raw.storedSuggestions.hideAllergens === true,
+				  }
+				: null,
 		diabeticMode:
 			typeof raw.diabeticMode === "boolean"
 				? raw.diabeticMode

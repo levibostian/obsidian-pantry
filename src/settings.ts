@@ -54,6 +54,12 @@ export interface PantrySettings {
 	suggestionDayWindow: number;
 	/** Default number of suggestions the recommender surfaces. */
 	suggestionCount: number;
+	/** Last drawn "Suggest a meal" set, restored on reopen. Null when none yet. */
+	storedSuggestions: {
+		paths: string[];
+		favoritesOnly: boolean;
+		hideAllergens: boolean;
+	} | null;
 	/** Master toggle for diabetes-aware features (currently the high-GI ingredient badges). */
 	diabeticMode: boolean;
 	/** User-editable high-GI dictionary as raw text. One regex per line, `#` comments. */
@@ -265,6 +271,7 @@ export const DEFAULT_SETTINGS: PantrySettings = {
 	myAllergens: [],
 	suggestionDayWindow: 14,
 	suggestionCount: 5,
+	storedSuggestions: null,
 	diabeticMode: false,
 	giDictionary: DEFAULT_GI_DICTIONARY,
 	mealPlanEnabled: false,

@@ -1,4 +1,5 @@
 import { App, Modal, Notice, Setting, TFile, setIcon } from "obsidian";
+import { resolveRecipeImage } from "../utils/recipe-image";
 import { GroceryListManager } from "../grocery/manager";
 import {
 	listRecipeLibrary,
@@ -12,6 +13,7 @@ import { PantrySettings } from "../settings";
 
 interface SuggestModalDeps {
 	getSettings: () => PantrySettings;
+	saveSettings: () => Promise<void>;
 	manager: GroceryListManager;
 }
 
@@ -38,14 +40,20 @@ export class SuggestMealModal extends Modal {
 	onOpen(): void {
 		this.modalEl.addClass("pantry-suggest-modal");
 		this.titleEl.setText("Suggest a meal");
-		this.render();
+		this.render(false);
 	}
 
 	onClose(): void {
 		this.contentEl.empty();
 	}
 
-	private render(): void {
+	/**
+	 * Renders suggestions. On first open, the last suggested set is
+	 * restored (so closing the modal to read a recipe and reopening shows
+	 * the same options); rerolling or changing a filter draws a fresh set.
+	 * The drawn set is persisted so reopening keeps what the user saw.
+	 */
+	private render(regenerate: boolean): void {
 		const { contentEl } = this;
 		contentEl.empty();
 
@@ -54,22 +62,28 @@ export class SuggestMealModal extends Modal {
 
 		this.renderFilters(contentEl, settings);
 
-		const suggestions = suggestMeals(
-			library,
-			settings,
-			this.filters,
-			settings.suggestionCount,
-		);
+		const suggestions = regenerate ? null : this.restoreSuggestions(library);
+		const drawn =
+			suggestions ??
+			suggestMeals(
+				library,
+				settings,
+				this.filters,
+				settings.suggestionCount,
+			);
+		if (suggestions === null) {
+			this.storeSuggestions(drawn.map((entry) => entry.file.path));
+		}
 
 		const list = contentEl.createDiv({ cls: "pantry-suggest-list" });
 
-		if (suggestions.length === 0) {
+		if (drawn.length === 0) {
 			list.createDiv({
 				cls: "pantry-suggest-empty",
 				text: this.emptyMessage(library, settings),
 			});
 		} else {
-			for (const entry of suggestions) {
+			for (const entry of drawn) {
 				this.renderSuggestion(list, entry);
 			}
 		}
@@ -81,8 +95,48 @@ export class SuggestMealModal extends Modal {
 			attr: { type: "button" },
 		});
 		reroll.addEventListener("click", () => {
-			this.render();
+			this.render(true);
 		});
+	}
+
+	/**
+	 * Persist the current suggestion set in plugin settings so reopening
+	 * the modal shows the same options. Only the paths are stored; card
+	 * metadata is re-read from the files at render time.
+	 */
+	private storeSuggestions(paths: string[]): void {
+		const settings = this.deps.getSettings();
+		settings.storedSuggestions = {
+			paths,
+			favoritesOnly: this.filters.favoritesOnly,
+			hideAllergens: this.filters.hideAllergens,
+		};
+		void this.deps.saveSettings();
+	}
+
+	/**
+	 * Look up the last suggested set in the current library, dropping
+	 * recipes that no longer exist. Returns null when there is nothing
+	 * usable or the active filters changed since it was drawn.
+	 */
+	private restoreSuggestions(
+		library: readonly RecipeEntry[],
+	): RecipeEntry[] | null {
+		const stored = this.deps.getSettings().storedSuggestions;
+		if (!stored) return null;
+		if (
+			stored.favoritesOnly !== this.filters.favoritesOnly ||
+			stored.hideAllergens !== this.filters.hideAllergens
+		) {
+			return null;
+		}
+		const byPath = new Map(
+			library.map((entry) => [entry.file.path, entry] as const),
+		);
+		const restored = stored.paths
+			.map((path) => byPath.get(path))
+			.filter((entry): entry is RecipeEntry => entry !== undefined);
+		return restored.length > 0 ? restored : null;
 	}
 
 	private renderFilters(
@@ -98,7 +152,7 @@ export class SuggestMealModal extends Modal {
 			.addToggle((toggle) =>
 				toggle.setValue(this.filters.favoritesOnly).onChange((value) => {
 					this.filters.favoritesOnly = value;
-					this.render();
+					this.render(true);
 				}),
 			);
 
@@ -108,7 +162,7 @@ export class SuggestMealModal extends Modal {
 				.addToggle((toggle) =>
 					toggle.setValue(this.filters.hideAllergens).onChange((value) => {
 						this.filters.hideAllergens = value;
-						this.render();
+						this.render(true);
 					}),
 				);
 		}
@@ -117,6 +171,8 @@ export class SuggestMealModal extends Modal {
 	private renderSuggestion(parent: HTMLElement, entry: RecipeEntry): void {
 		const { file, meta } = entry;
 		const card = parent.createDiv({ cls: "pantry-suggest-card" });
+
+		this.renderCardImage(card, file, meta.image);
 
 		const title = card.createDiv({ cls: "pantry-suggest-card-title" });
 		const link = title.createEl("a", {
@@ -186,6 +242,21 @@ export class SuggestMealModal extends Modal {
 				addBtn.setText("Added");
 			});
 		});
+	}
+
+	private renderCardImage(
+		card: HTMLElement,
+		file: TFile,
+		raw: string | null,
+	): void {
+		const url = raw ? resolveRecipeImage(this.app, raw, file) : null;
+		if (!url) return;
+		const imageCard = card.createDiv({ cls: "pantry-recipe-image-card" });
+		const img = imageCard.createEl("img", {
+			cls: "pantry-recipe-image",
+			attr: { alt: file.basename, src: url },
+		});
+		img.addEventListener("error", () => imageCard.remove());
 	}
 
 	private async addToList(file: TFile): Promise<void> {
