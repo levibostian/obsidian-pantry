@@ -27,6 +27,7 @@ const KEY_ALIASES: Record<string, readonly string[]> = {
 		"timesCooked",
 		"times_cooked",
 	],
+	[RECIPE_FRONTMATTER.image]: ["cover", "photo", "img"],
 };
 
 function aliasesFor(key: string): readonly string[] {
@@ -134,6 +135,16 @@ export function readTimes(frontmatter: Record<string, unknown>): RecipeTimes {
 	return { prep, cook, total };
 }
 
+/** Read the image property (URL or vault path/wikilink). Returns null when absent. */
+export function readImage(
+	frontmatter: Record<string, unknown>,
+): string | null {
+	const raw = findValue(frontmatter, aliasesFor(RECIPE_FRONTMATTER.image));
+	if (typeof raw !== "string") return null;
+	const trimmed = raw.trim();
+	return trimmed || null;
+}
+
 export function readFavorite(frontmatter: Record<string, unknown>): boolean {
 	return toBoolean(
 		findValue(frontmatter, aliasesFor(RECIPE_FRONTMATTER.favorite)),
@@ -236,6 +247,7 @@ export interface RecipeMeta {
 	diet: string[];
 	allergens: string[];
 	times: RecipeTimes;
+	image: string | null;
 	favorite: boolean;
 	/** `true` = kids approved, `false` = not approved, `null` = no vote. */
 	kidsApproved: boolean | null;
@@ -252,6 +264,7 @@ export function readRecipeMeta(
 		diet: readDiet(fm),
 		allergens: readAllergens(fm),
 		times: readTimes(fm),
+		image: readImage(fm),
 		favorite: readFavorite(fm),
 		kidsApproved: readKidsApproved(fm),
 		cookedCount: readCookedCount(fm),

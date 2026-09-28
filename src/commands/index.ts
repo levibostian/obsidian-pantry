@@ -183,6 +183,7 @@ export function registerCommands(host: CommandsHost): void {
 		callback: () => {
 			new SuggestMealModal(plugin.app, {
 				getSettings: () => host.settings,
+				saveSettings: () => host.saveSettings(),
 				manager,
 			}).open();
 		},

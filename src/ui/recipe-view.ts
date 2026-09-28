@@ -33,6 +33,7 @@ import {
 	isNutritionPerServing,
 	resolveNutritionDisplayValue,
 } from "../utils/nutrition-basis";
+import { resolveRecipeImage } from "../utils/recipe-image";
 
 export const VIEW_TYPE_RECIPE = "pantry-recipe";
 
@@ -312,7 +313,7 @@ export class RecipeView extends TextFileView {
 		});
 
 		const raw = readStringFromKeys(frontmatter, IMAGE_KEYS);
-		const url = raw ? this.resolveImage(raw, file) : null;
+		const url = raw ? resolveRecipeImage(this.app, raw, file) : null;
 
 		if (!url) {
 			this.renderImagePlaceholder(card);
@@ -374,31 +375,6 @@ export class RecipeView extends TextFileView {
 		}
 
 		return lines.join("\n");
-	}
-
-	private resolveImage(value: string, file: TFile): string | null {
-		const trimmed = value.trim();
-		if (!trimmed) return null;
-
-		if (/^(https?:|data:|app:|capacitor:)/i.test(trimmed)) {
-			return trimmed;
-		}
-
-		const wikilink = trimmed.match(/^!?\[\[([^\]|#]+)(?:[#|][^\]]*)?\]\]$/);
-		const target = ((wikilink ? wikilink[1] : trimmed) ?? trimmed).trim();
-
-		const linked = this.app.metadataCache.getFirstLinkpathDest(
-			target,
-			file.path,
-		);
-		if (linked) {
-			return this.app.vault.getResourcePath(linked);
-		}
-		const direct = this.app.vault.getAbstractFileByPath(target);
-		if (direct instanceof TFile) {
-			return this.app.vault.getResourcePath(direct);
-		}
-		return null;
 	}
 
 	private imageRefsMatch(left: string, right: string, file: TFile): boolean {
