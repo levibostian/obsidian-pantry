@@ -16,6 +16,7 @@ import {
 	formatAutoFillNotice,
 	runAutoFillWeek,
 } from "../grocery/meal-plan-fill";
+import { createMealPlanBase } from "../grocery/meal-plan-base";
 import { SuggestMealModal } from "../ui/suggest-modal";
 import { MealPlannerView, VIEW_TYPE_MEAL_PLANNER } from "../ui/planner-view";
 
@@ -33,6 +34,14 @@ export interface CommandsHost {
 
 export function registerCommands(host: CommandsHost): void {
 	const { plugin, manager } = host;
+
+	plugin.addCommand({
+		id: "create-meal-plan-base",
+		name: "Create meal plan base",
+		callback: () => {
+			void createMealPlanBase(plugin.app, host.settings);
+		},
+	});
 
 	plugin.addCommand({
 		id: "open-grocery-list",
